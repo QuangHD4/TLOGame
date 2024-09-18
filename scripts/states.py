@@ -1,5 +1,5 @@
 import pygame, os
-from .entities import Player
+from .entities import Player, Coin
 
 class State():
     def __init__(self, game):
@@ -103,6 +103,7 @@ class Game_World(State):
     def __init__(self, game):
         State.__init__(self,game)
         self.player = Player(self.game)
+        self.coins = [Coin(self.game)]
         self.grass_img = pygame.image.load(os.path.join(self.game.assets_dir, "map", "grass.png"))
 
     def update(self,delta_time, actions):
@@ -111,6 +112,11 @@ class Game_World(State):
             new_state = PauseMenu(self.game)
             new_state.enter_state()
         self.player.update(delta_time, actions)
+
+        # many coins
+        self.coins[0].update(delta_time, actions)
     def render(self, display):
         display.blit(self.grass_img, (0,0))
         self.player.render(display)
+        
+        self.coins[0].render(display)
