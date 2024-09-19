@@ -102,9 +102,11 @@ class PartyMenu(State):
 class Game_World(State):
     def __init__(self, game):
         State.__init__(self,game)
-        self.player = Player(self.game)
+        self.player = Player(self.game, self)
         self.coins = [Coin(self.game)]
         self.grass_img = pygame.image.load(os.path.join(self.game.assets_dir, "map", "grass.png"))
+
+        self.new_coin_interval = 0
 
     def update(self,delta_time, actions):
         # Check if the game was paused 
@@ -114,9 +116,17 @@ class Game_World(State):
         self.player.update(delta_time, actions)
 
         # many coins
-        self.coins[0].update(delta_time, actions)
+        self.new_coin_interval += delta_time
+        if self.new_coin_interval > 1:
+            new_coin = Coin(self.game)
+            self.coins.append(new_coin)
+            self.new_coin_interval = 0
+        for coin in self.coins:
+            coin.update(delta_time, actions)
+
     def render(self, display):
         display.blit(self.grass_img, (0,0))
         self.player.render(display)
         
-        self.coins[0].render(display)
+        for coin in self.coins:
+            coin.render(display)

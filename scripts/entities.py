@@ -6,6 +6,8 @@ class Entity:
         self.load_sprites()
         self.position_x, self.position_y = 200,200  #initial position
         self.current_frame, self.last_frame_update = 0,0
+
+
         
 
     def update(self,delta_time, actions):
@@ -40,12 +42,16 @@ class Entity:
         self.curr_anim_list = self.front_sprites
 
 class Player():
-    def __init__(self,game):
-        self.game = game
+    def __init__(self,game, game_world):
+        self.game = game        #game class in main
+        self.game_world = game_world        #containing the in-game objects
         self.load_sprites()
         self.position_x, self.position_y = 200,200
         self.current_frame, self.last_frame_update = 0,0
         
+        self.size = (16,16)
+
+        self.point = 0
 
     def update(self,delta_time, actions):
         # Get the direction from inputs
@@ -54,9 +60,18 @@ class Player():
         # Update the position
         self.position_x += 100 * delta_time * direction_x
         self.position_y += 100 * delta_time * direction_y
+        # Handle collision with coins
+        player_rect = self.rect()
+        collected_coins = []
+        for coin in self.game_world.coins:
+            if player_rect.colliderect(coin):
+                collected_coins.append(coin)
+                self.point += 1
+        for coin in collected_coins:
+            self.game_world.coins.remove(coin)
+        
         # Animate the sprite
         self.animate(delta_time,direction_x,direction_y)
-
 
     def render(self, display):
         display.blit(self.curr_image, (self.position_x,self.position_y))
@@ -81,6 +96,9 @@ class Player():
             self.current_frame = (self.current_frame +1) % len(self.curr_anim_list)
             self.curr_image = self.curr_anim_list[self.current_frame]
 
+    def rect(self):
+        return pygame.Rect(self.position_x, self.position_y, *self.size)
+
     def load_sprites(self):
         # Get the diretory with the player sprites
         self.sprite_dir = os.path.join(self.game.sprite_dir, "player")
@@ -102,7 +120,10 @@ class Bot(Entity):
 class Coin(Entity):
     def __init__(self, game):
         super().__init__(game)
-        self.position_x, self.position_y = random.choices(range(max((self.game.GAME_W, self.game.GAME_H)) - 75), k = 2)
+        self.position_x = random.choice(range((self.game.GAME_W - self.game.GAME_H)//2 + 25, (self.game.GAME_W + self.game.GAME_H)//2 - 25))
+        self.position_y = random.choice(range(25 ,self.game.GAME_H - 25))
+
+        self.rect = pygame.Rect(self.position_x, self.position_y, 9, 9)
 
     def update(self,delta_time, actions):
 

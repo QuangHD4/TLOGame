@@ -15,12 +15,16 @@ class Game():
         self.load_assets()
         self.load_states()
 
+        self.clock = pygame.time.Clock()
+
     def game_loop(self):
         while self.playing:
             self.get_dt()
             self.get_events()
             self.update()
             self.render()
+
+            self.clock.tick(60)
 
     def get_events(self):
         for event in pygame.event.get():
@@ -31,13 +35,13 @@ class Game():
                 if event.key == pygame.K_ESCAPE:
                     self.playing = False
                     self.running = False
-                if event.key == pygame.K_a:
+                if event.key == pygame.K_LEFT:
                     self.actions['left'] = True
-                if event.key == pygame.K_d:
+                if event.key == pygame.K_RIGHT:
                     self.actions['right'] = True
-                if event.key == pygame.K_w:
+                if event.key == pygame.K_UP:
                     self.actions['up'] = True
-                if event.key == pygame.K_s:
+                if event.key == pygame.K_DOWN:
                     self.actions['down'] = True
                 if event.key == pygame.K_p:
                     self.actions['action1'] = True
@@ -47,13 +51,13 @@ class Game():
                     self.actions['start'] = True  
 
             if event.type == pygame.KEYUP:
-                if event.key == pygame.K_a:
+                if event.key == pygame.K_LEFT:
                     self.actions['left'] = False
-                if event.key == pygame.K_d:
+                if event.key == pygame.K_RIGHT:
                     self.actions['right'] = False
-                if event.key == pygame.K_w:
+                if event.key == pygame.K_UP:
                     self.actions['up'] = False
-                if event.key == pygame.K_s:
+                if event.key == pygame.K_DOWN:
                     self.actions['down'] = False
                 if event.key == pygame.K_p:
                     self.actions['action1'] = False
