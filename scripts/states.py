@@ -1,5 +1,5 @@
 import pygame, os
-from .entities import Player, Coin
+from .entities import Player, Coin, Spell
 
 class State():
     def __init__(self, game):
@@ -30,7 +30,7 @@ class Title(State):
             new_state.enter_state()
         self.game.reset_keys()
 
-    def render(self, display):
+    def render(self, display, actions):
         display.fill((255,255,255))
         self.game.draw_text(display, "Game States Demo", (0,0,0), self.game.GAME_W/2, self.game.GAME_H/2 )
 
@@ -104,9 +104,11 @@ class Game_World(State):
         State.__init__(self,game)
         self.player = Player(self.game, self)
         self.coins = [Coin(self.game)]
+        self.spells = [Spell(self.game)]
         self.grass_img = pygame.image.load(os.path.join(self.game.assets_dir, "map", "grass.png"))
 
         self.new_coin_interval = 0
+        self.new_spell_interval = 0
 
     def update(self,delta_time, actions):
         # Check if the game was paused 
@@ -124,9 +126,22 @@ class Game_World(State):
         for coin in self.coins:
             coin.update(delta_time, actions)
 
-    def render(self, display):
+        #spells
+        self.new_spell_interval += delta_time
+        if self.new_spell_interval > 2:
+            new_spell = Spell(self.game)
+            self.spells.append(new_spell)
+            self.new_spell_interval = 0
+        for spell in self.spells:
+            spell.update(delta_time, actions)
+
+    def render(self, display, actions):
         display.blit(self.grass_img, (0,0))
-        self.player.render(display)
         
         for coin in self.coins:
             coin.render(display)
+
+        for spell in self.spells:
+            spell.render(display)
+
+        self.player.render(display, actions)

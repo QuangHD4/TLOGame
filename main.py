@@ -9,7 +9,11 @@ class Game():
         self.game_canvas = pygame.Surface((self.GAME_W,self.GAME_H))
         self.screen = pygame.display.set_mode((self.SCREEN_WIDTH,self.SCREEN_HEIGHT))
         self.running, self.playing = True, True
-        self.actions = {"left": False, "right": False, "up" : False, "down" : False, "action1" : False, "action2" : False, "start" : False}
+        self.actions = {
+            "left": False, "right": False, "up" : False, "down" : False,
+            "action1" : False, "action2" : False, "start" : False,
+            'a':0, 'b':0, 'c':0, 'd':0, 'answered': False
+        }
         self.dt, self.prev_time = 0, 0
         self.state_stack = []
         self.load_assets()
@@ -27,6 +31,13 @@ class Game():
             self.clock.tick(60)
 
     def get_events(self):
+        cur_option = None
+        prev_option = None
+        if self.actions['answered']:
+            self.actions['a'], self.actions['b'], self.actions['c'], self.actions['d'] = 0,0,0,0
+            self.actions['answered'] = False
+
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.playing = False
@@ -46,9 +57,16 @@ class Game():
                 if event.key == pygame.K_p:
                     self.actions['action1'] = True
                 if event.key == pygame.K_o:
-                    self.actions['action2'] = True    
+                    self.actions['action2'] = True
+                if event.key in (options := [pygame.K_a, pygame.K_b, pygame.K_c, pygame.K_d]):
+                    options.remove(event.key)
+                    for option in options:
+                        self.actions[pygame.key.name(option)] = 0
+                    self.actions[pygame.key.name(event.key)] += 1
+                    if self.actions[pygame.key.name(event.key)] == 2:
+                        self.actions['answered'] = True
                 if event.key == pygame.K_RETURN:
-                    self.actions['start'] = True  
+                    self.actions['start'] = True
 
             if event.type == pygame.KEYUP:
                 if event.key == pygame.K_LEFT:
@@ -70,11 +88,10 @@ class Game():
         self.state_stack[-1].update(self.dt,self.actions)
 
     def render(self):
-        self.state_stack[-1].render(self.game_canvas)
+        self.state_stack[-1].render(self.game_canvas, self.actions)
         # Render current state to the screen
         self.screen.blit(pygame.transform.scale(self.game_canvas,(self.SCREEN_WIDTH, self.SCREEN_HEIGHT)), (0,0))
         pygame.display.flip()
-
 
     def get_dt(self):
         now = time.time()
