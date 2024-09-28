@@ -6,7 +6,7 @@ class Effect():
     Base class for timed effects on player, except for Exploit
     '''
 
-    def __init__(self, player, fx_name:str, duration = -1) -> None:
+    def __init__(self, player, fx_name:str, duration = -1, frame_interval = .15) -> None:
         '''
         player: player to receive the effect
         fx_name: specifies the overlay set to use and the level of the current fx(if any)
@@ -17,16 +17,22 @@ class Effect():
         # current frame of overlay
         self.current_frame, self.last_frame_update = 0,0
         self.curr_overlay_img = self.player.overlays[self.fx_name][0]
+        self.frame_interval = .15
 
     def update(self):
-        pass
-
-    def animate_overlay(self, frame_interval=.15):
+        # update time elapsed since last frame and remove effect after finishing the last frame (if the animation does not loop)
         self.last_frame_update += self.player.game.dt
+        if self.curr_overlay_img == self.player.overlays[self.fx_name][-1] and self.last_frame_update > self.frame_interval:
+            self.player.effects_to_remove.append(self)
+
+    def animate_overlay(self, loop = True):
         # Advance the animation if enough time has elapsed
-        if self.last_frame_update > frame_interval:
+        if self.last_frame_update > self.frame_interval:
             self.last_frame_update = 0
-            self.current_frame = (self.current_frame +1) % len(self.player.overlays[self.fx_name])
+            if loop:
+                self.current_frame = (self.current_frame +1) % len(self.player.overlays[self.fx_name])
+            else:
+                self.current_frame = min(self.current_frame +1, len(self.player.overlays[self.fx_name])-1)
             self.curr_overlay_img = self.player.overlays[self.fx_name][self.current_frame]
 
     def render_overlay(self, display, offset):
@@ -56,6 +62,7 @@ class Stunned(Effect):
     def update(self):
         self.timer -= self.player.game.dt
         self.sliding_timer -= self.player.game.dt
+        self.last_frame_update += self.player.game.dt
 
         if self.timer <= 0:
             self.player.stunned = False
@@ -194,12 +201,35 @@ class Drop_coin_around_self():
     def render_overlay(self, *args):
         pass        # no rendering needed
 
-class Accumulation():
-    def __init__(self, player) -> None:
-        super().__init__(player, self.__class__.__name__.lower())
+class Accumulation(Effect):
+    def __init__(self, player, max_stack = 3) -> None:
+        super().__init__(player, self.__class__.__name__.lower(), frame_interval=.07)
+        self.max_stack = max_stack
+        self.remaining = max_stack - 1
+        for fx in self.player.applied_fx:
+            if isinstance(fx, Accumulation):
+                self.player.effects_to_remove.append(fx)
+                self.remaining = fx.remaining - 1
+        self.current_frame = 2 - self.remaining
+        self.curr_overlay_img = self.player.overlays[self.fx_name][self.current_frame]  # 2 is the level-3 piggy bank img
 
-    def effect_logic(self, delta_time, remove_list ):   
-        ...
+    def update(self):
+        self.last_frame_update += self.player.game.dt
+
+        if self.curr_overlay_img == self.player.overlays[self.fx_name][-1] and self.last_frame_update > self.frame_interval:
+            self.player.effects_to_remove.append(self)
+        self.animate_overlay()
+
+    def animate_overlay(self):
+        if self.remaining == 0:
+            super().animate_overlay(loop=False)
+        
+    def render_overlay(self, display, offset):
+        player_rect = self.player.rect()
+        overlay_rect = self.curr_overlay_img.get_rect(bottomleft = player_rect.bottomleft)
+        overlay_rect.x -= offset[0]
+        overlay_rect.y -= offset[1]
+        display.blit(self.curr_overlay_img, overlay_rect)
 
 class Immunity():
     def __init__(self, player, timed:bool) -> None:
