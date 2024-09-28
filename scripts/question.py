@@ -1,34 +1,5 @@
 import pygame, random, os, csv
 
-ALL_EFFECTS = [
-    'better_suited',
-    'calculus',
-    'counterintuitive',
-    'exploit',
-    'exposition',
-    'fruitful',
-    'go_awry',
-    'idealized',
-    'incur',
-    'mainstream',
-    'not_bad',
-    'pin_hopes_on',
-    'postulate',
-    'prove_useful',
-    'rally',
-    'rebound',
-    'retaliatory',
-    'savvy',
-    'set_off',
-    'stand_above_the_crowd',
-    'steadfastly',
-    'subtlety',
-    'tackle',
-    'unprecedented'
-]
-TEST_Q_SET = [
-    'counterintuitive',
-]
 class Question:
     def __init__(self, game) -> None:
         self.game = game

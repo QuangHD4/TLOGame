@@ -4,8 +4,8 @@ from scripts.states import Title
 class Game():
     def __init__(self):
         pygame.init()
-        self.GAME_W,self.GAME_H = 480, 270
-        self.SCREEN_WIDTH,self.SCREEN_HEIGHT = 960, 540
+        self.GAME_W,self.GAME_H = 540, 360
+        self.SCREEN_WIDTH,self.SCREEN_HEIGHT = 1080, 720
         self.game_canvas = pygame.Surface((self.GAME_W,self.GAME_H))
         self.screen = pygame.display.set_mode((self.SCREEN_WIDTH,self.SCREEN_HEIGHT))
         self.running, self.playing = True, True
@@ -31,12 +31,9 @@ class Game():
             self.clock.tick(60)
 
     def get_events(self):
-        cur_option = None
-        prev_option = None
         if self.actions['answered']:
             self.actions['a'], self.actions['b'], self.actions['c'], self.actions['d'] = 0,0,0,0
             self.actions['answered'] = False
-
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:

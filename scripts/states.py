@@ -1,5 +1,6 @@
 import pygame, os
-from .entities import Player, Coin, Spell
+from .entities import Player
+from .collectibles import Coin, Spell
 
 class State():
     def __init__(self, game):
@@ -102,15 +103,35 @@ class PartyMenu(State):
 class Game_World(State):
     def __init__(self, game):
         State.__init__(self,game)
-        self.player = Player(self.game, self)
-        self.coins = [Coin(self.game)]
-        self.spells = [Spell(self.game)]
-        self.grass_img = pygame.image.load(os.path.join(self.game.assets_dir, "map", "grass.png"))
+        self.camera_scroll = [0,0]
+        self.game_area = {'top': 25, 'bottom': self.game.GAME_H - 25, 'left': 100, 'right': self.game.GAME_W-100}
+        self.scroll_area = {'top': 100, 'bottom': self.game.GAME_H - 100, 'left': 250, 'right': self.game.GAME_W - 250}
+        self.scroll_time = 8
 
+        self.player = Player(self.game, self)
+        self.coins = [Coin(self.game, self.game_area)]
+        self.spells = [Spell(self.game, self.game_area)]
         self.new_coin_interval = 0
         self.new_spell_interval = 0
 
+        self.grass_img = pygame.image.load(os.path.join(self.game.assets_dir, "map", "grass.png"))
+
     def update(self,delta_time, actions):
+        # apply scrolling, stop scrolling when player is near the border
+        if self.player.position_x < self.scroll_area['left']:
+            self.camera_scroll[0] += (self.scroll_area['left'] - self.game.GAME_W/2 - self.camera_scroll[0])/self.scroll_time
+        elif self.player.position_x > self.scroll_area['right']:
+            self.camera_scroll[0] += (self.scroll_area['right'] - self.game.GAME_W/2 - self.camera_scroll[0])/self.scroll_time
+        else:
+            self.camera_scroll[0] += (self.player.rect().centerx - self.game.GAME_W/2 - self.camera_scroll[0])/self.scroll_time
+
+        if self.player.position_y < self.scroll_area['top']:
+            self.camera_scroll[1] += (self.scroll_area['top'] - self.game.GAME_H/2 - self.camera_scroll[1])/self.scroll_time
+        elif self.player.position_y > self.scroll_area['bottom']:
+            self.camera_scroll[1] += (self.scroll_area['bottom'] - self.game.GAME_H/2 - self.camera_scroll[1])/self.scroll_time
+        else:
+            self.camera_scroll[1] += (self.player.rect().centery - self.game.GAME_H/2 - self.camera_scroll[1])/self.scroll_time
+
         # Check if the game was paused 
         if actions["start"]:
             new_state = PauseMenu(self.game)
@@ -119,8 +140,8 @@ class Game_World(State):
 
         # many coins
         self.new_coin_interval += delta_time
-        if self.new_coin_interval > 1:
-            new_coin = Coin(self.game)
+        if self.new_coin_interval > .75:
+            new_coin = Coin(self.game, self.game_area)
             self.coins.append(new_coin)
             self.new_coin_interval = 0
         for coin in self.coins:
@@ -128,20 +149,26 @@ class Game_World(State):
 
         #spells
         self.new_spell_interval += delta_time
-        if self.new_spell_interval > 2:
-            new_spell = Spell(self.game)
+        if self.new_spell_interval > 1.5:
+            new_spell = Spell(self.game, self.game_area)
             self.spells.append(new_spell)
             self.new_spell_interval = 0
         for spell in self.spells:
             spell.update(delta_time, actions)
 
     def render(self, display, actions):
-        display.blit(self.grass_img, (0,0))
+        bg_window = (
+            self.grass_img.get_rect().centerx - self.game.GAME_W/2 + self.camera_scroll[0], 
+            self.grass_img.get_rect().centery - self.game.GAME_H/2 + self.camera_scroll[1],
+            self.game.GAME_W,
+            self.game.GAME_H
+        )
+        display.blit(self.grass_img, (0,0), bg_window)
         
         for coin in self.coins:
-            coin.render(display)
+            coin.render(display, self.camera_scroll)
 
         for spell in self.spells:
-            spell.render(display)
+            spell.render(display, self.camera_scroll)
 
-        self.player.render(display, actions)
+        self.player.render(display, actions, self.camera_scroll)

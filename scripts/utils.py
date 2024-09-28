@@ -1,6 +1,7 @@
 import os, pygame
 
 BASE_IMG_PATH = 'assets/sprites/'
+PLAYER_SPEED = 100
 
 def load_img(path):
     return pygame.image.load(BASE_IMG_PATH + path).convert_alpha()

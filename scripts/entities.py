@@ -1,7 +1,7 @@
-import pygame, os, random
+import pygame, os, random, sys
 from .question import Question
-from .effects import Stun
-from .utils import load_img, load_images, BASE_IMG_PATH
+from .effects import Stunned, Delayed_coin_burst, Extra_coin_value, Drop_coin_around_self
+from .utils import load_img, load_images, BASE_IMG_PATH, PLAYER_SPEED
 
 class Entity:
     def __init__(self,game):
@@ -20,8 +20,8 @@ class Entity:
         # Animate the sprite
         self.animate(delta_time,direction_x,direction_y)
 
-    def render(self, display):
-        display.blit(self.curr_image, (self.position_x,self.position_y))
+    def render(self, display, offset):
+        display.blit(self.curr_image, (self.position_x - offset[0], self.position_y - offset[1]))
 
     def animate(self):
         pass
@@ -44,16 +44,17 @@ class Player():
     def __init__(self,game, game_world):
         self.game = game        #game class in main
         self.game_world = game_world        #containing the in-game objects
-        self.position_x, self.position_y = 200,200
+        self.size = (16,16)
+        self.position_x, self.position_y = self.game.GAME_W/2 - self.size[0]/2, self.game.GAME_H/2 - self.size[1]/2
         self.speed = 100
         self.current_frame, self.last_frame_update = 0,0
         
-        self.size = (16,16)
-
         self.question_queue = []
         self.applied_fx = []
         self.stunned = False
-        self.point = 0
+
+        self.score = 0
+        self.score_font = pygame.font.SysFont('Consolas', 28, False, False)
 
         self.load_assets()
 
@@ -62,17 +63,29 @@ class Player():
         direction_x = actions["right"] - actions["left"]
         direction_y = actions["down"] - actions["up"]
 
+        if self.stunned: self.speed = 0
+        else: self.speed = PLAYER_SPEED
         # Update the position
         self.position_x += self.speed * delta_time * direction_x  # (100*direction_x) is x velocity, 100 is the speed along the x axis
+        # prevent player going out of border
+        if self.position_x < self.game_world.game_area['left']:
+            self.position_x = self.game_world.game_area['left']
+        elif self.position_x > self.game_world.game_area['right']:
+            self.position_x = self.game_world.game_area['right']
         self.position_y += self.speed * delta_time * direction_y
-        
+        # prevent player going out of border
+        if self.position_y < self.game_world.game_area['top']:
+            self.position_y = self.game_world.game_area['top']
+        elif self.position_y > self.game_world.game_area['bottom']:
+            self.position_y = self.game_world.game_area['bottom']
+
         # Handle collision with coins
         player_rect = self.rect()
         collected_coins = []
         for coin in self.game_world.coins:
             if player_rect.colliderect(coin):
                 collected_coins.append(coin)
-                self.point += 1
+                self.score += 1
         for coin in collected_coins:
             self.game_world.coins.remove(coin)
 
@@ -82,37 +95,41 @@ class Player():
             if player_rect.colliderect(spell):
                 self.question_queue.append(Question(self.game))
                 collected_spells.append(spell)
-                self.point += 1
         for spell in collected_spells:
             self.game_world.spells.remove(spell)
-        
-        # Animate the sprite
-        self.animate(delta_time,direction_x,direction_y)
 
         # Update question queue
         if actions['answered']:
             if self.question_queue.pop(0).correct(actions):
-                # self.applied_fx.append()
-                ...
+                self.applied_fx.append(Drop_coin_around_self(self, duration=7, radius=40))
             else:
-                self.applied_fx.append(Stun(self, 3))
+                self.applied_fx.append(Stunned(self, 3))
 
         # update effects - this need to go after updating Player.applied_fx
+        self.effects_to_remove = []
         for effect in self.applied_fx:
-            effect.update(delta_time, actions)
+            effect.update()
+        for effect in self.effects_to_remove:
+            self.applied_fx.remove(effect)
+                
+        # Animate the sprite
+        self.animate(delta_time,direction_x,direction_y)
 
-    def render(self, display, actions):
+    def render(self, display, actions, offset):
         # draw the player
-        display.blit(self.curr_image, (self.position_x,self.position_y))
+        display.blit(self.curr_image, (self.position_x - offset[0], self.position_y - offset[1]))
 
         #overlay
         # update effects
         for effect in self.applied_fx:
-            effect.render_overlay(display)
+            effect.render_overlay(display, offset)
 
         # render question for this player
         if len(self.question_queue) >= 1:
             self.question_queue[0].render(display, actions)
+
+        # render score
+        display.blit(self.score_font.render(str(self.score), True, (0,0,0)), (25,25))
 
     def animate(self, delta_time, direction_x, direction_y):
         # Compute how much time has passed since the frame last updated
@@ -163,91 +180,3 @@ class Player():
 class Bot(Entity):
     def __init__(self, x, y, width, height, color):
         super().__init__(x, y, width, height, color)
-
-class Coin(Entity):
-    def __init__(self, game):
-        super().__init__(game)
-        self.position_x = random.choice(range((self.game.GAME_W - self.game.GAME_H)//2 + 25, (self.game.GAME_W + self.game.GAME_H)//2 - 25))
-        self.position_y = random.choice(range(25 ,self.game.GAME_H - 25))
-
-        self.rect = pygame.Rect(self.position_x, self.position_y, 9, 9)
-
-    def update(self,delta_time, actions):
-
-        # Handle collision with players
-        ... # TODO
-
-        # Animate the sprite
-        self.animate(delta_time)
-
-    def animate(self, delta_time):
-        # Compute how much time has passed since the frame last updated
-        self.last_frame_update += delta_time
-        # intro sequence (rename files)
-        '''if not (direction_x or direction_y): 
-            self.curr_image = self.sprites[0]
-            return'''
-        
-        # handles if 'counterintuitive' is played
-        ...# TODO
-
-        # Advance the animation if enough time has elapsed
-        if self.last_frame_update > .15:
-            self.last_frame_update = 0
-            self.current_frame = (self.current_frame +1) % len(self.sprites)
-            self.curr_image = self.sprites[self.current_frame]
-
-    def load_assets(self):
-        # Get the diretory with the player sprites
-        self.sprite_dir = os.path.join(self.game.sprite_dir, "coin")
-        self.sprites = []
-        # Load in the frames for each direction
-        for i in range(1,5):
-            self.sprites.append(pygame.image.load(os.path.join(self.sprite_dir, "coin" + str(i) +".png")))
-        # Set the default frames to facing front
-        self.curr_image = self.sprites[0]
-
-class Spell(Entity):
-    def __init__(self, game):
-        super().__init__(game)
-        self.position_x = random.choice(range((self.game.GAME_W - self.game.GAME_H)//2 + 25, (self.game.GAME_W + self.game.GAME_H)//2 - 25))
-        self.position_y = random.choice(range(25 ,self.game.GAME_H - 25))
-
-        self.rect = pygame.Rect(self.position_x, self.position_y, 12, 12)
-
-        # self.effect = random.choice()
-
-    def update(self,delta_time, actions):
-
-        # Handle collision with players
-        ... # TODO
-
-        # Animate the sprite
-        self.animate(delta_time)
-
-    def animate(self, delta_time):
-        # Compute how much time has passed since the frame last updated
-        self.last_frame_update += delta_time
-        # intro sequence (rename files)
-        '''if not (direction_x or direction_y): 
-            self.curr_image = self.sprites[0]
-            return'''
-        
-        # handles if 'counterintuitive' is played
-        ...# TODO
-
-        # Advance the animation if enough time has elapsed
-        if self.last_frame_update > .15:
-            self.last_frame_update = 0
-            self.current_frame = (self.current_frame +1) % len(self.sprites)
-            self.curr_image = self.sprites[self.current_frame]
-
-    def load_assets(self):
-        # Get the diretory with the player sprites
-        self.sprite_dir = os.path.join(self.game.sprite_dir, "spell")
-        self.sprites = []
-        # Load in the frames for each direction
-        for i in range(1,3):
-            self.sprites.append(pygame.image.load(os.path.join(self.sprite_dir, "spell" + str(i) +".png")))
-        # Set the default frames to facing front
-        self.curr_image = self.sprites[0]
