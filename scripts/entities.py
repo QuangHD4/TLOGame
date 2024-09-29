@@ -1,6 +1,6 @@
 import pygame, os, random, sys
 from .question import Question
-from .effects import Stunned, Delayed_coin_burst, Extra_coin_value, Drop_coin_around_self, Accumulation
+from .effects import Stunned, Delayed_coin_burst, Extra_coin_value, Drop_coin_around_self, Accumulation, Immunity
 from .utils import load_img, load_images, BASE_IMG_PATH, PLAYER_SPEED
 
 class Entity:
@@ -53,6 +53,7 @@ class Player():
         self.applied_fx = []
         self.effects_to_remove = []
         self.stunned = False
+        self.immuned = False
 
         self.score = 0
         self.score_font = pygame.font.SysFont('Consolas', 28, False, False)
@@ -102,7 +103,7 @@ class Player():
         # Update question queue
         if actions['answered']:
             if self.question_queue.pop(0).correct(actions):
-                self.applied_fx.append(Accumulation(self))
+                self.applied_fx.append(Immunity(self))
             else:
                 self.applied_fx.append(Stunned(self, 3))
 
