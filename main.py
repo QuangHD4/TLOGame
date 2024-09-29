@@ -1,5 +1,5 @@
 import os, time, pygame
-from scripts.states import Title
+from scripts.states import Title, Game_World
 
 class Game():
     def __init__(self):
@@ -56,12 +56,16 @@ class Game():
                 if event.key == pygame.K_o:
                     self.actions['action2'] = True
                 if event.key in (options := [pygame.K_a, pygame.K_b, pygame.K_c, pygame.K_d]):
-                    options.remove(event.key)
-                    for option in options:
-                        self.actions[pygame.key.name(option)] = 0
-                    self.actions[pygame.key.name(event.key)] += 1
-                    if self.actions[pygame.key.name(event.key)] == 2:
-                        self.actions['answered'] = True
+                    try:
+                        if len(self.state_stack[-1].player.question_queue) > 0:
+                            options.remove(event.key)
+                            for option in options:
+                                self.actions[pygame.key.name(option)] = 0
+                            self.actions[pygame.key.name(event.key)] += 1
+                            if self.actions[pygame.key.name(event.key)] == 2:
+                                self.actions['answered'] = True
+                    except AttributeError:
+                        pass
                 if event.key == pygame.K_RETURN:
                     self.actions['start'] = True
 
