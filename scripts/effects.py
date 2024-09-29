@@ -62,6 +62,17 @@ class Stunned(Effect):
             self.got_prev_directions = False
         self.prev_directions = [0,0]
 
+        # intercept the player's animation sprites
+        match self.player.curr_anim_list:
+            case self.player.front_sprites:
+                self.player.curr_image = self.player.stunned_img['front']
+            case self.player.back_sprites:
+                self.player.curr_image = self.player.stunned_img['back']
+            case self.player.right_sprites:
+                self.player.curr_image = self.player.stunned_img['right']
+            case self.player.left_sprites:
+                self.player.curr_image = self.player.stunned_img['left']
+
     def update(self):
         self.timer -= self.player.game.dt
         self.sliding_timer -= self.player.game.dt
@@ -77,41 +88,19 @@ class Stunned(Effect):
             # delete fx
             self.player.effects_to_remove.append(self)
             return
-        else:
-            if not self.got_prev_directions:
-                self.prev_directions[0] = (self.player.game.actions['right'] - self.player.game.actions['left'])
-                self.prev_directions[1] = (self.player.game.actions['down'] - self.player.game.actions['up'])
-                self.got_prev_directions = True
 
-            # if player is already stunned, do not add sliding again
-            if self.already_stunned:
-                pass
-            else:
-                #                         <---------------------------add sliding distance----------------------------->  
-                self.player.position_x += PLAYER_SPEED * self.player.game.dt * max(0, self.sliding_timer)*self.prev_directions[0]
-                self.player.position_y += PLAYER_SPEED * self.player.game.dt * max(0, self.sliding_timer)*self.prev_directions[1]
+        if not self.got_prev_directions:
+            self.prev_directions[0] = (self.player.game.actions['right'] - self.player.game.actions['left'])
+            self.prev_directions[1] = (self.player.game.actions['down'] - self.player.game.actions['up'])
+            self.got_prev_directions = True
+
+        # if player is not already stunned and was moving when stunned, add sliding
+        if not self.already_stunned:
+            #                         <---------------------------add sliding distance----------------------------->  
+            self.player.position_x += PLAYER_SPEED * self.player.game.dt * max(0, self.sliding_timer)*self.prev_directions[0]
+            self.player.position_y += PLAYER_SPEED * self.player.game.dt * max(0, self.sliding_timer)*self.prev_directions[1]
         
-        # intercept the player's animation sprites
         self.player.stunned = True
-        if not (self.prev_directions[0] or self.prev_directions[1]):
-            if self.got_prev_directions:
-                pass
-            else:
-                match self.player.curr_anim_list:
-                    case self.player.front_sprites:
-                        self.player.curr_image = self.player.stunned_img['front']
-                    case self.player.back_sprites:
-                        self.player.curr_image = self.player.stunned_img['back']
-                    case self.player.right_sprites:
-                        self.player.curr_image = self.player.stunned_img['right']
-                    case self.player.left_sprites:
-                        self.player.curr_image = self.player.stunned_img['left']
-        if self.prev_directions[0]:
-            if self.prev_directions[0] > 0: self.player.curr_image = self.player.stunned_img['right']
-            else: self.player.curr_image = self.player.stunned_img['left']
-        if self.prev_directions[1]:
-            if self.prev_directions[1] > 0: self.player.curr_image = self.player.stunned_img['front']
-            else: self.player.curr_image = self.player.stunned_img['back']
 
         self.animate_overlay(self.curr_sprite_set)
 
