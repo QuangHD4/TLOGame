@@ -1,5 +1,5 @@
-import pygame, time, random, math
-from .utils import PLAYER_SPEED
+import pygame, time, random, math, os
+from .utils import PLAYER_SPEED, BASE_IMG_PATH, load_images
 from .collectibles import Coin
 NEGATIVE_FX = ['stunned', 'steal', 'lose_coins_every_sec', 'stolen', 'teleport_random', 'coins_avoid_player']
 
@@ -18,14 +18,16 @@ class Effect():
         self.timer = duration       #-1 imply untimed
         # current frame of overlay
         self.current_frame, self.last_frame_update = 0,0
-        self.curr_overlay_img = self.player.overlays[self.fx_name][0]
-        self.curr_sprite_set = self.player.overlays[self.fx_name]
+
+        self.curr_sprite_set = load_images('overlay/' + self.fx_name)
+        self.curr_overlay_img = self.curr_sprite_set[0]
+
         self.frame_interval = .08
 
     def update(self):
         # update time elapsed since last frame and remove effect after finishing the last frame (if the animation does not loop)
         self.last_frame_update += self.player.game.dt
-        if self.curr_overlay_img == self.player.overlays[self.fx_name][-1] and self.last_frame_update > self.frame_interval:
+        if self.curr_overlay_img == self.curr_sprite_set[-1] and self.last_frame_update > self.frame_interval:
             self.player.effects_to_remove.append(self)
 
     def animate_overlay(self, sprite_set, loop = True):
@@ -40,10 +42,13 @@ class Effect():
 
     def render_overlay(self, display, offset):
         player_rect = self.player.rect()
-        overlay_rect = self.curr_overlay_img.get_rect(midbottom = player_rect.midbottom)
+        overlay_rect = self.curr_overlay_img.get_rect(center = player_rect.center)
         overlay_rect.x -= offset[0]
         overlay_rect.y -= offset[1]
         display.blit(self.curr_overlay_img, overlay_rect)
+
+    def load_assets(self):
+        self.curr_sprite_set = load_images('overlay/' + self.fx_name)       
 
 
 # ------------------------------- Possitive fx -------------------------------------
@@ -117,19 +122,19 @@ class Extra_coin_value(Effect):
     def update(self):
         self.animate_overlay()
 
-        if self.curr_overlay_img == self.player.overlays[self.fx_name][self.last_coin_counting_frame]:
+        if self.curr_overlay_img == self.curr_sprite_set[self.last_coin_counting_frame]:
             if not self.enough_coin:
                 self.last_frame_update = -.2       #allow the last frame to be displayed for another (.2+fx_end_frame_interval) second
                 self.player.score += self.level
             self.enough_coin = True
-        if self.curr_overlay_img == self.player.overlays[self.fx_name][-1]:
+        if self.curr_overlay_img == self.curr_sprite_set[-1]:
             self.player.effects_to_remove.append(self)
 
     def animate_overlay(self):
         if not self.enough_coin:
             if self.player.score - self.player_prev_score > 0:
                 self.current_frame = min(self.current_frame + (self.player.score - self.player_prev_score), self.last_coin_counting_frame)
-                self.curr_overlay_img = self.player.overlays[self.fx_name][self.current_frame]
+                self.curr_overlay_img = self.curr_sprite_set[self.current_frame]
                 self.player_prev_score = self.player.score
         else:
             self.last_frame_update += self.player.game.dt
@@ -142,7 +147,7 @@ class Delayed_coin_burst(Effect):
         self.end_fx = False
     
     def update(self):
-        if self.curr_overlay_img == self.player.overlays[self.fx_name][-1]:
+        if self.curr_overlay_img == self.curr_sprite_set[-1]:
             if not self.end_fx:
                 self.player.score += 30
                 self.timer = 1
@@ -157,8 +162,8 @@ class Delayed_coin_burst(Effect):
 
     def animate_overlay(self):
         if self.player.score - self.player_prev_score > 0:
-            self.current_frame = (self.current_frame + (self.player.score - self.player_prev_score)) % len(self.player.overlays[self.fx_name])
-            self.curr_overlay_img = self.player.overlays[self.fx_name][self.current_frame]
+            self.current_frame = (self.current_frame + (self.player.score - self.player_prev_score)) % len(self.curr_sprite_set)
+            self.curr_overlay_img = self.curr_sprite_set[self.current_frame]
 
             # take away the point scored during the fx
             self.player.score -= 1
@@ -204,33 +209,26 @@ class Accumulation(Effect):
                 self.player.effects_to_remove.append(fx)
                 self.remaining = fx.remaining - 1
         self.current_frame = 2 - self.remaining
-        self.curr_overlay_img = self.player.overlays[self.fx_name][self.current_frame]  # 2 is the level-3 piggy bank img
+        self.curr_overlay_img = self.curr_sprite_set[self.current_frame]  # 2 is the level-3 piggy bank img
 
     def update(self):
         self.last_frame_update += self.player.game.dt
 
-        if self.curr_overlay_img == self.player.overlays[self.fx_name][-1] and self.last_frame_update > self.frame_interval:
+        if self.curr_overlay_img == self.curr_sprite_set[-1] and self.last_frame_update > self.frame_interval:
             self.player.effects_to_remove.append(self)
         self.animate_overlay()
 
     def animate_overlay(self):
         if self.remaining == 0:
             super().animate_overlay(self.curr_sprite_set, loop=False)
-        
-    def render_overlay(self, display, offset):
-        player_rect = self.player.rect()
-        overlay_rect = self.curr_overlay_img.get_rect(bottomleft = player_rect.bottomleft)
-        overlay_rect.x -= offset[0]
-        overlay_rect.y -= offset[1]
-        display.blit(self.curr_overlay_img, overlay_rect)
 
 class Immunity(Effect):
     def __init__(self, player) -> None:
         super().__init__(player, self.__class__.__name__.lower())
         self.used = False
-        self.intro_sprites = self.player.overlays[self.fx_name][:4]
-        self.iron_body_sprites = self.player.overlays[self.fx_name][4:10]
-        self.fx_used_sprites = self.player.overlays[self.fx_name][10:]
+        self.intro_sprites = self.curr_sprite_set[:4]
+        self.iron_body_sprites = self.curr_sprite_set[4:10]
+        self.fx_used_sprites = self.curr_sprite_set[10:]
         self.curr_sprite_set = self.intro_sprites
 
     def update(self):   
@@ -261,13 +259,6 @@ class Immunity(Effect):
         # if used, render the remaining sprites once
         else:
             super().animate_overlay(self.curr_sprite_set, loop = False)
-
-    def render_overlay(self, display, offset):
-        player_rect = self.player.rect()
-        overlay_rect = self.curr_overlay_img.get_rect(center = player_rect.center)
-        overlay_rect.x -= offset[0]
-        overlay_rect.y -= offset[1]
-        display.blit(self.curr_overlay_img, overlay_rect)
 
 class Enhance_reward():
     def __init__(self, player) -> None:

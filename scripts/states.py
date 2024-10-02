@@ -1,6 +1,8 @@
-import pygame, os
+import pygame, os, pickle
 from .entities import Player
 from .collectibles import Coin, Spell
+from .utils import load_img
+from network import Network
 
 class State():
     def __init__(self, game):
@@ -26,9 +28,12 @@ class Title(State):
         
 
     def update(self, delta_time, actions):
-        if actions["start"]:
+        if actions['single_player']:
             new_state = Game_World(self.game)
             new_state.enter_state()
+        if actions['multiplayer']:
+            Multiplayer_Game(self.game).enter_state()
+            self.game.state_stack[-1].update(self.game.dt,self.game.actions)
         self.game.reset_keys()
 
     def render(self, display, actions):
@@ -102,7 +107,7 @@ class PartyMenu(State):
 
 class Game_World(State):
     def __init__(self, game):
-        State.__init__(self,game)
+        State.__init__(self, game)
         self.camera_scroll = [0,0]
         self.game_area = {'top': 25, 'bottom': self.game.GAME_H - 25, 'left': 100, 'right': self.game.GAME_W-100}
         self.scroll_area = {'top': 100, 'bottom': self.game.GAME_H - 100, 'left': 250, 'right': self.game.GAME_W - 250}
@@ -172,3 +177,59 @@ class Game_World(State):
             spell.render(display, self.camera_scroll)
 
         self.player.render(display, actions, self.camera_scroll)
+
+class Multiplayer_Game(Game_World):
+    def __init__(self, game):
+        super().__init__(game)
+
+        # NOTE: make new sprites so players can tell themselves apart
+        # NOTE: coins and spell spawn may be better handled by server
+
+        self.n = Network()
+        self.player_id = int(self.n.getP())
+        print("You are player", self.player_id)
+
+    def update(self, delta_time, actions):
+        super().update(delta_time, actions)
+        # try:
+            # send player data and get a list of other players' data (Player obj)
+        
+        self.other_players = self.n.send(pickle.dumps(self.encode_player_data()))
+        # self.other_players = self.n.send(pickle.dumps(self.player))
+        '''except:
+            print('Shit! Something went terribly wrong.')'''
+
+    def render(self, display, actions):
+        super().render(display, actions)
+        for player_data in self.other_players:
+            player_img = load_img(player_data['curr_player_img_addr'])
+            overlay_img = load_img(player_data['curr_overlay_img_addr'])
+
+            player_rect = display.blit(player_img, player_data['pos'])
+            overlay_rect = overlay_img.get_rect(center = player_rect.center)
+            display.blit(overlay_img, overlay_rect)
+
+    def encode_player_data(self):
+        player_data = {
+            'pos':(self.player.position_x, self.player.position_y),
+        }
+
+        curr_player_img_addr = 'player/'
+        if self.player.curr_anim_list == self.player.front_sprites:
+            curr_player_img_addr += 'front/' + str(self.player.current_frame) + '.png'
+        elif self.player.curr_anim_list == self.player.back_sprites:
+            curr_player_img_addr += 'back/' + str(self.player.current_frame) + '.png'
+        elif self.player.curr_anim_list == self.player.left_sprites:
+            curr_player_img_addr += 'left/' + str(self.player.current_frame) + '.png'
+        elif self.player.curr_anim_list == self.player.right_sprites:
+            curr_player_img_addr += 'front/' + str(self.player.current_frame) + '.png'
+        elif self.player.curr_image in self.player.stunned_img.values():
+            curr_player_img_addr += 'stunned' + list(self.player.stunned_img.keys())[list(self.player.stunned_img.values()).index(self.player.curr_image)] + '.png'
+        player_data['curr_player_img_addr'] = curr_player_img_addr
+
+        curr_overlay_img_addr = ['overlays/']*len(self.player.applied_fx)
+        for order, effect in enumerate(self.player.applied_fx):
+            curr_overlay_img_addr[order] += effect.fx_name + '/' + str(effect.curr_sprite_set.index(effect.curr_overlay_img)) + '.png'
+        player_data['curr_overlay_img_addr'] = curr_overlay_img_addr
+
+        return player_data

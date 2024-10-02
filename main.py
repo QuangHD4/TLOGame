@@ -12,7 +12,8 @@ class Game():
         self.actions = {
             "left": False, "right": False, "up" : False, "down" : False,
             "action1" : False, "action2" : False, "start" : False,
-            'a':0, 'b':0, 'c':0, 'd':0, 'answered': False
+            'a':0, 'b':0, 'c':0, 'd':0, 'answered': False,
+            'single_player': False, 'multiplayer': False
         }
         self.dt, self.prev_time = 0, 0
         self.state_stack = []
@@ -68,6 +69,9 @@ class Game():
                         pass
                 if event.key == pygame.K_RETURN:
                     self.actions['start'] = True
+                    self.actions['single_player'] = True
+                if event.key == pygame.K_TAB:
+                    self.actions['multiplayer'] = True
 
             if event.type == pygame.KEYUP:
                 if event.key == pygame.K_LEFT:
@@ -84,6 +88,9 @@ class Game():
                     self.actions['action2'] = False
                 if event.key == pygame.K_RETURN:
                     self.actions['start'] = False  
+                    self.actions['single_player'] = False
+                if event.key == pygame.K_TAB:
+                    self.actions['multiplayer'] = False
 
     def update(self):
         self.state_stack[-1].update(self.dt,self.actions)

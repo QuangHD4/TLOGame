@@ -117,7 +117,7 @@ class Player():
         # Animate the sprite
         self.animate(delta_time,direction_x,direction_y)
 
-    def render(self, display, actions, offset):
+    def render(self, display, actions, offset, rendered_by_others = False):
         # draw the player
         display.blit(self.curr_image, (self.position_x - offset[0], self.position_y - offset[1]))
 
@@ -126,12 +126,12 @@ class Player():
         for effect in self.applied_fx:
             effect.render_overlay(display, offset)
 
-        # render question for this player
-        if len(self.question_queue) >= 1:
-            self.question_queue[0].render(display, actions)
+        # render question and score for this player only
+        if not rendered_by_others:
+            if len(self.question_queue) >= 1:
+                self.question_queue[0].render(display, actions)
 
-        # render score
-        display.blit(self.score_font.render(str(self.score), True, (0,0,0)), (25,25))
+            display.blit(self.score_font.render(str(self.score), True, (0,0,0)), (25,25))
 
     def animate(self, delta_time, direction_x, direction_y):
         # Compute how much time has passed since the frame last updated
@@ -172,12 +172,7 @@ class Player():
             self.stunned_img[stun_direction] = load_img('player/stunned/'+ stun_direction + '.png')
         # Set the default frames to facing front
         self.curr_image = self.front_sprites[0]
-        self.curr_anim_list = self.front_sprites
-
-        #Load overlays for effects
-        self.overlays = {}
-        for effect_name in os.listdir(BASE_IMG_PATH + 'overlay'):
-            self.overlays[effect_name] = load_images('overlay/' + effect_name)        
+        self.curr_anim_list = self.front_sprites       
 
 class Bot(Entity):
     def __init__(self, x, y, width, height, color):
