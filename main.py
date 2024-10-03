@@ -11,9 +11,8 @@ class Game():
         self.running, self.playing = True, True
         self.actions = {
             "left": False, "right": False, "up" : False, "down" : False,
-            "action1" : False, "action2" : False, "start" : False,
-            'a':0, 'b':0, 'c':0, 'd':0, 'answered': False,
-            'single_player': False, 'multiplayer': False
+            "action1" : False, "action2" : False, "choose" : False,
+            'a':0, 'b':0, 'c':0, 'd':0, 'answered': False
         }
         self.dt, self.prev_time = 0, 0
         self.state_stack = []
@@ -68,8 +67,7 @@ class Game():
                     except AttributeError:
                         pass
                 if event.key == pygame.K_RETURN:
-                    self.actions['start'] = True
-                    self.actions['single_player'] = True
+                    self.actions['choose'] = True
                 if event.key == pygame.K_TAB:
                     self.actions['multiplayer'] = True
 
@@ -87,8 +85,7 @@ class Game():
                 if event.key == pygame.K_o:
                     self.actions['action2'] = False
                 if event.key == pygame.K_RETURN:
-                    self.actions['start'] = False  
-                    self.actions['single_player'] = False
+                    self.actions['choose'] = False  
                 if event.key == pygame.K_TAB:
                     self.actions['multiplayer'] = False
 

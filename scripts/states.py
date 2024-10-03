@@ -25,20 +25,69 @@ class State():
 class Title(State):
     def __init__(self, game):
         State.__init__(self, game)
-        
+        self.buttons = [
+            {'name': 'rules','rect': pygame.rect.Rect(self.game.GAME_W/2 - 160/2, self.game.GAME_H*3/5 - 30/2, 160, 30), 'active_rect': pygame.rect.Rect(self.game.GAME_W/2 - 160/2 - 15, self.game.GAME_H*3/5 - 30/2 - 5, 160+30, 30+10), 'is_chosen':False},
+            {'name': 'single_player','rect': pygame.rect.Rect(self.game.GAME_W/2 - 160/2, self.game.GAME_H*3/5 - 30/2 + 30*3/2, 160,30), 'active_rect': pygame.rect.Rect(self.game.GAME_W/2 - 160/2 - 15, self.game.GAME_H*3/5 - 30/2 + 30*3/2 - 5, 160+30, 30+10), 'is_chosen':False},
+            {'name': 'multiplayer', 'rect': pygame.rect.Rect(self.game.GAME_W/2 - 160/2, self.game.GAME_H*3/5 - 30/2 + 30*3, 160,30), 'active_rect': pygame.rect.Rect(self.game.GAME_W/2 - 160/2 - 15, self.game.GAME_H*3/5 - 30/2 + 30*3 - 5, 160+30, 30+10), 'is_chosen':False}
+        ]
+        self.btn_font = pygame.font.SysFont('Consolas', 15, True)
+        self.btn_index = 0
 
-    def update(self, delta_time, actions):
-        if actions['single_player']:
-            new_state = Game_World(self.game)
-            new_state.enter_state()
-        if actions['multiplayer']:
-            Multiplayer_Game(self.game).enter_state()
-            self.game.state_stack[-1].update(self.game.dt,self.game.actions)
+    def update(self, dt, actions):
+        prev_btn_index = self.btn_index
+        if actions['down']:
+            self.btn_index = (self.btn_index + 1) % len(self.buttons)
+        elif actions['up']:
+            self.btn_index = (self.btn_index - 1) % len(self.buttons)
+        self.buttons[prev_btn_index]['is_chosen'] = False
+        self.buttons[self.btn_index]['is_chosen'] = True
+
+        if actions['choose']:
+            if self.btn_index == 0:
+                pass
+            elif self.btn_index == 1:
+                new_state = Game_World(self.game)
+                new_state.enter_state()
+            elif self.btn_index == 2:
+                Multiplayer_Game(self.game).enter_state()
+                self.game.state_stack[-1].update(self.game.dt,self.game.actions)
         self.game.reset_keys()
+
 
     def render(self, display, actions):
         display.fill((255,255,255))
-        self.game.draw_text(display, "Game States Demo", (0,0,0), self.game.GAME_W/2, self.game.GAME_H/2 )
+        self.game.draw_text(display, "Game States Demo", (0,0,0), self.game.GAME_W/2, self.game.GAME_H/3)
+
+        for button in self.buttons:
+            if button['is_chosen']:
+                pygame.draw.rect(display, (181,230,29), button['active_rect'], width = 5, border_radius = 5)
+                text = self.btn_font.render(button['name'], False, (181,230,29))
+                display.blit(text, text.get_rect(center = button['rect'].center))
+            else:
+                pygame.draw.rect(display, (0,0,0), button['rect'], width = 5, border_radius = 5)
+                text = self.btn_font.render(button['name'], False, (0,0,0))
+                display.blit(text, text.get_rect(center = button['rect'].center))
+
+
+    '''def handle_button_click(self):
+        if event.type == pygame.MOUSEBUTTONDOWN: 
+            if input_rect.collidepoint(event.pos): 
+                active = True
+            else: 
+                active = False
+  
+        if event.type == pygame.KEYDOWN: 
+  
+            # Check for backspace 
+            if event.key == pygame.K_BACKSPACE: 
+  
+                # get text input from 0 to -1 i.e. end. 
+                user_text = user_text[:-1] 
+  
+            # Unicode standard is used for string 
+            # formation 
+            else: 
+                user_text += event.unicode'''
 
 class PauseMenu(State):
     def __init__(self, game):
@@ -121,7 +170,7 @@ class Game_World(State):
 
         self.grass_img = pygame.image.load(os.path.join(self.game.assets_dir, "map", "grass.png"))
 
-    def update(self,delta_time, actions):
+    def update(self, delta_time, actions):
         # apply scrolling, stop scrolling when player is near the border
         if self.player.position_x < self.scroll_area['left']:
             self.camera_scroll[0] += (self.scroll_area['left'] - self.game.GAME_W/2 - self.camera_scroll[0])/self.scroll_time
@@ -138,9 +187,9 @@ class Game_World(State):
             self.camera_scroll[1] += (self.player.rect().centery - self.game.GAME_H/2 - self.camera_scroll[1])/self.scroll_time
 
         # Check if the game was paused 
-        if actions["start"]:
+        '''if actions["start"]:
             new_state = PauseMenu(self.game)
-            new_state.enter_state()
+            new_state.enter_state()'''
         self.player.update(delta_time, actions)
 
         # many coins
@@ -187,27 +236,29 @@ class Multiplayer_Game(Game_World):
 
         self.n = Network()
         self.player_id = int(self.n.getP())
-        print("You are player", self.player_id)
 
     def update(self, delta_time, actions):
         super().update(delta_time, actions)
         # try:
             # send player data and get a list of other players' data (Player obj)
         
-        self.other_players = self.n.send(pickle.dumps(self.encode_player_data()))
+        self.other_players = self.n.send(self.encode_player_data())
         # self.other_players = self.n.send(pickle.dumps(self.player))
         '''except:
             print('Shit! Something went terribly wrong.')'''
 
     def render(self, display, actions):
         super().render(display, actions)
-        for player_data in self.other_players:
-            player_img = load_img(player_data['curr_player_img_addr'])
-            overlay_img = load_img(player_data['curr_overlay_img_addr'])
+        for player_id in self.other_players:
+            player_img = load_img(self.other_players[player_id]['curr_player_img_addr'])
+            x = self.other_players[player_id]['pos'][0] - self.camera_scroll[0]
+            y = self.other_players[player_id]['pos'][1] - self.camera_scroll[1]
+            player_rect = display.blit(player_img, (x,y))
 
-            player_rect = display.blit(player_img, player_data['pos'])
-            overlay_rect = overlay_img.get_rect(center = player_rect.center)
-            display.blit(overlay_img, overlay_rect)
+            for fx in self.other_players[player_id]['curr_overlay_img_addr']:
+                overlay_img = load_img(fx)
+                overlay_rect = overlay_img.get_rect(center = player_rect.center)
+                display.blit(overlay_img, overlay_rect)
 
     def encode_player_data(self):
         player_data = {
@@ -222,7 +273,7 @@ class Multiplayer_Game(Game_World):
         elif self.player.curr_anim_list == self.player.left_sprites:
             curr_player_img_addr += 'left/' + str(self.player.current_frame) + '.png'
         elif self.player.curr_anim_list == self.player.right_sprites:
-            curr_player_img_addr += 'front/' + str(self.player.current_frame) + '.png'
+            curr_player_img_addr += 'right/' + str(self.player.current_frame) + '.png'
         elif self.player.curr_image in self.player.stunned_img.values():
             curr_player_img_addr += 'stunned' + list(self.player.stunned_img.keys())[list(self.player.stunned_img.values()).index(self.player.curr_image)] + '.png'
         player_data['curr_player_img_addr'] = curr_player_img_addr

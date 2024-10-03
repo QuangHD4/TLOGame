@@ -12,6 +12,12 @@ def load_images(path):
         images.append(load_img(path + '/' + img_name))
     return images
 
-class Animation():
-    def __init__(self) -> None:
-        pass
+class Button():
+    def __init__(self, location, size:list, text:str='', is_chosen:bool=False) -> None:
+        self.location = location
+        self.size = size
+        self.text = text
+        self.is_chosen = is_chosen
+
+    def render(self, display):
+        pygame.draw.rect(display, (255,255,255), )

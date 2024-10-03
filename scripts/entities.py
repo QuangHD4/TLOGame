@@ -107,15 +107,15 @@ class Player():
             else:
                 self.applied_fx.append(Stunned(self, 3))
 
+        # Animate the sprite
+        self.animate(delta_time,direction_x,direction_y)
+
         # update effects - this need to go after updating Player.applied_fx
         for effect in self.applied_fx:
             effect.update()
         for effect in self.effects_to_remove:
             self.applied_fx.remove(effect)
         self.effects_to_remove = []
-                
-        # Animate the sprite
-        self.animate(delta_time,direction_x,direction_y)
 
     def render(self, display, actions, offset, rendered_by_others = False):
         # draw the player
@@ -139,7 +139,8 @@ class Player():
         # If no direction is pressed, set image to idle and return
         if not (direction_x or direction_y): 
             if not self.stunned:
-                self.curr_image = self.curr_anim_list[0]
+                self.current_frame = 0
+                self.curr_image = self.curr_anim_list[self.current_frame]
             return
         # If an image was pressed, use the appropriate list of frames according to direction
         if direction_x:
