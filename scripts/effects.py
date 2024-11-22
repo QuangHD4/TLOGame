@@ -177,6 +177,7 @@ class Drop_coin_around_self():
         self.last_frame_update = 0
         self.coin_spawn_interval = random.choice(range(60, 150))/1000
         self.radius = radius
+        self.fx_name = self.__class__.__name__.lower()
 
     def update(self):
         self.timer -= self.player.game.dt
@@ -231,6 +232,8 @@ class Immunity(Effect):
         self.fx_used_sprites = self.curr_sprite_set[10:]
         self.curr_sprite_set = self.intro_sprites
 
+        self.player.immuned =True
+
     def update(self):   
         self.last_frame_update += self.player.game.dt
 
@@ -243,6 +246,7 @@ class Immunity(Effect):
             self.current_frame = 0
         if self.curr_overlay_img == self.fx_used_sprites[-1] and self.last_frame_update > self.frame_interval:
             self.player.effects_to_remove.append(self)
+            self.player.immuned =False
             return
         self.animate_overlay()
 

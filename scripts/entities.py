@@ -1,44 +1,8 @@
-import pygame, os, random, sys
+import pygame, os, random, math
 from .question import Question
-from .effects import Stunned, Delayed_coin_burst, Extra_coin_value, Drop_coin_around_self, Accumulation, Immunity
+from .effects import Stunned
 from .utils import load_img, load_images, BASE_IMG_PATH, PLAYER_SPEED
 
-class Entity:
-    def __init__(self,game):
-        self.game = game
-        self.load_assets()
-        self.position_x, self.position_y = 200,200  #initial position
-        self.current_frame, self.last_frame_update = 0,0
-
-    def update(self,delta_time, actions):
-        # Get the direction from inputs
-        direction_x = actions["right"] - actions["left"]
-        direction_y = actions["down"] - actions["up"]
-        # Update the position
-        self.position_x += 100 * delta_time * direction_x
-        self.position_y += 100 * delta_time * direction_y
-        # Animate the sprite
-        self.animate(delta_time,direction_x,direction_y)
-
-    def render(self, display, offset):
-        display.blit(self.curr_image, (self.position_x - offset[0], self.position_y - offset[1]))
-
-    def animate(self):
-        pass
-
-    def load_assets(self):
-        # Get the diretory with the player sprites
-        self.sprite_dir = os.path.join(self.game.sprite_dir, "player")
-        self.front_sprites, self.back_sprites, self.right_sprites, self.left_sprites = [],[],[],[]
-        # Load in the frames for each direction
-        for i in range(1,5):
-            self.front_sprites.append(pygame.image.load(os.path.join(self.sprite_dir, "player_front" + str(i) +".png")))
-            self.back_sprites.append(pygame.image.load(os.path.join(self.sprite_dir, "player_back" + str(i) +".png")))
-            self.right_sprites.append(pygame.image.load(os.path.join(self.sprite_dir, "player_right" + str(i) +".png")))
-            self.left_sprites.append(pygame.image.load(os.path.join(self.sprite_dir, "player_left" + str(i) +".png")))
-        # Set the default frames to facing front
-        self.curr_image = self.front_sprites[0]
-        self.curr_anim_list = self.front_sprites
 
 class Player():
     def __init__(self,game, game_world):
@@ -50,6 +14,7 @@ class Player():
         self.current_frame, self.last_frame_update = 0,0
         
         self.question_queue = []
+        self.answered_q = None
         self.applied_fx = []
         self.effects_to_remove = []
         self.stunned = False
@@ -61,6 +26,8 @@ class Player():
         self.load_assets()
 
     def update(self,delta_time, actions):
+        if self.game_world.end_game:
+            return
         # Get the direction from inputs
         direction_x = actions["right"] - actions["left"]
         direction_y = actions["down"] - actions["up"]
@@ -74,6 +41,7 @@ class Player():
             self.position_x = self.game_world.game_area['left']
         elif self.position_x > self.game_world.game_area['right']:
             self.position_x = self.game_world.game_area['right']
+            
         self.position_y += self.speed * delta_time * direction_y
         # prevent player going out of border
         if self.position_y < self.game_world.game_area['top']:
@@ -81,31 +49,24 @@ class Player():
         elif self.position_y > self.game_world.game_area['bottom']:
             self.position_y = self.game_world.game_area['bottom']
 
-        # Handle collision with coins
-        player_rect = self.rect()
-        collected_coins = []
-        for coin in self.game_world.coins:
-            if player_rect.colliderect(coin):
-                collected_coins.append(coin)
-                self.score += 1
-        for coin in collected_coins:
-            self.game_world.coins.remove(coin)
+        if not self.game_world.end_game:
+            # Handle collision with coins
+            player_rect = self.rect()
+            collected_coins = []
+            for coin in self.game_world.coins:
+                if player_rect.colliderect(coin):
+                    collected_coins.append(coin)
+                    self.question_queue.append(Question(self.game, self))
+            for coin in collected_coins:
+                self.game_world.coins.remove(coin)
 
-        # "Handle collision with spells"
-        collected_spells = []
-        for spell in self.game_world.spells:
-            if player_rect.colliderect(spell):
-                self.question_queue.append(Question(self.game))
-                collected_spells.append(spell)
-        for spell in collected_spells:
-            self.game_world.spells.remove(spell)
-
-        # Update question queue
-        if actions['answered']:
-            if self.question_queue.pop(0).correct(actions):
-                self.applied_fx.append(Immunity(self))
-            else:
-                self.applied_fx.append(Stunned(self, 3))
+            # Update question queue
+            if actions['answered']:
+                self.answered_q = self.question_queue.pop(0)
+                if self.answered_q.correct():
+                    self.score += 50
+                else:
+                    self.applied_fx.append(Stunned(self, 3))
 
         # Animate the sprite
         self.animate(delta_time,direction_x,direction_y)
@@ -128,10 +89,10 @@ class Player():
 
         # render question and score for this player only
         if not rendered_by_others:
-            if len(self.question_queue) >= 1:
-                self.question_queue[0].render(display, actions)
-
-            display.blit(self.score_font.render(str(self.score), True, (0,0,0)), (25,25))
+            if self.answered_q and self.stunned:
+                self.answered_q.render(display)
+            elif len(self.question_queue) >= 1:
+                self.question_queue[0].render(display)
 
     def animate(self, delta_time, direction_x, direction_y):
         # Compute how much time has passed since the frame last updated
@@ -174,7 +135,106 @@ class Player():
         # Set the default frames to facing front
         self.curr_image = self.front_sprites[0]
         self.curr_anim_list = self.front_sprites       
+        # Icon for leader board
+        self.icon = load_img('player/icon.png')
 
-class Bot(Entity):
-    def __init__(self, x, y, width, height, color):
-        super().__init__(x, y, width, height, color)
+class Bot(Player):
+    def __init__(self,game, game_world, difficulty:str):
+        super().__init__(game, game_world)
+        if difficulty == 'startup':
+            self.accuracy = [.5,.5]
+            self.answering_time = 8
+        if difficulty == 'enterprise':
+            self.accuracy = [.3,.7]
+            self.answering_time = 5
+        if difficulty == 'corporation':
+            self.accuracy = [.1,.9]
+            self.answering_time = 3
+        del self.question_queue
+        self.wait = 0
+        self.add_point = 0
+        self.wrong = False
+
+    def update(self, delta_time):
+        if self.game_world.end_game:
+            return
+        # animate is in the move_toward func
+        # if self.difficulty == 'corporation':
+        if self.wait <= 0:
+            prev_nearest_dist = math.inf
+            if not self.stunned and len(self.game_world.coins) > 0:
+                for coin in self.game_world.coins:
+                    if self.distance_from_player(coin) < prev_nearest_dist:
+                        nearest_coin_loc = (coin.position_x, coin.position_y)
+                self.move_toward(nearest_coin_loc, delta_time)
+            
+            if self.add_point > 0:
+                self.score += self.add_point*50
+                self.add_point = 0
+
+            if self.wrong:
+                self.applied_fx.append(Stunned(self, 3))
+                self.wrong = False
+
+        else:
+            self.wait -= delta_time
+
+        bot_rect = self.rect()
+        # "Handle collision with coins"
+        collected_coins = []
+        for coin in self.game_world.coins:
+            if bot_rect.colliderect(coin):
+                self.wait = self.answering_time
+                if random.choices([0,1], self.accuracy)[0]:
+                    self.add_point += 1
+                else:
+                    self.wrong = True
+                collected_coins.append(coin)
+        for coin in collected_coins:
+            self.game_world.coins.remove(coin)
+
+        # update effects - this need to go after updating Player.applied_fx
+        for effect in self.applied_fx:
+            effect.update()
+        for effect in self.effects_to_remove:
+            self.applied_fx.remove(effect)
+        self.effects_to_remove = []
+
+    def load_assets(self):
+        # Load in the frames for each direction
+        self.front_sprites = load_images('bot/front')
+        self.back_sprites = load_images('bot/back')
+        self.right_sprites = load_images('bot/right')
+        self.left_sprites = load_images('bot/left')
+        # Load img for Stun effect
+        self.stunned_img = {'front':None, 'back':None, 'right':None, 'left':None}
+        for stun_direction in self.stunned_img:
+            self.stunned_img[stun_direction] = load_img('bot/stunned/'+ stun_direction + '.png')
+        # Set the default frames to facing front
+        self.curr_image = self.front_sprites[0]
+        self.curr_anim_list = self.front_sprites       
+        # Icon for leader board
+        self.icon = load_img('bot/icon.png')
+
+    def move_toward(self, loc, dt):
+        if self.stunned: self.speed = 0
+        else: self.speed = PLAYER_SPEED
+
+        if self.position_x - loc[0] > 6: direction_x = -1
+        elif self.position_x - loc[0] < -6: direction_x = 1
+        else: direction_x = 0
+        if not self.stunned:
+            self.position_x += self.speed * dt * direction_x
+
+        if self.position_y - loc[1] > 6: direction_y = -1
+        elif self.position_y - loc[1] < -6: direction_y = 1
+        else: direction_y = 0
+        if not self.stunned:
+            self.position_y += self.speed * dt * direction_y
+
+        self.animate(dt,direction_x,direction_y)
+        
+    def distance_from_player(self, obj):
+        diagonal_path_dist = min(abs(self.position_x - obj.position_x), abs(self.position_y - obj.position_y))
+        remaining_straight_dist = abs(abs(self.position_x - obj.position_x) - abs(self.position_y - obj.position_y))
+        return diagonal_path_dist + remaining_straight_dist

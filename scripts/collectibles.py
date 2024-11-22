@@ -49,10 +49,6 @@ class Coin(Collectible):
         self.rect = pygame.Rect(self.position_x, self.position_y, 9, 9)
 
     def update(self,delta_time, actions):
-
-        # Handle collision with players
-        ... # TODO
-
         # Animate the sprite
         self.animate(delta_time)
 

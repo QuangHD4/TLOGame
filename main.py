@@ -1,5 +1,5 @@
 import os, time, pygame
-from scripts.states import Title, Game_World
+from scripts.states import Title
 
 class Game():
     def __init__(self):
